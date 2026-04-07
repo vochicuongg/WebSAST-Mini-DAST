@@ -4,7 +4,7 @@ Công cụ kiểm thử bảo mật động (Dynamic Application Security Testin
 
 ![Phân tích Report](./reports/report_preview.png) *(Hình minh họa báo cáo DAST HTML)*
 
-## 🚀 Tính năng nổi bật
+## 🚀 Tính năng nổi bật 
 
 * **🎯 2 Chế độ Rà Két Rõ Ràng:** Khai thác các lỗ hổng đã được nhúng sẵn theo kịch bản (PoC) và Tự động trinh sát (Crawl) đâm payload vào mọi form để tìm lỗ hổng chưa biết.
 * **🕷️ Auto-Discovery (Quét Tự Động):** Thu thập toàn bộ URL tĩnh, bóc tách toàn bộ Form (POST/GET), tự động phát hiện tham số.
