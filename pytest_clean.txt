@@ -1,0 +1,8 @@
+﻿============================= test session starts =============================
+================================== FAILURES ===================================
+E       UnboundLocalError: cannot access local variable 'r' where it is not associated with a value
+report_generator.py:81: UnboundLocalError
+E           assert 'V-01' in '<!DOCTYPE html>\\n<html lang="vi">\\n<head>\\n    <meta charset="UTF-8">\\n    <meta name="viewport" content="width=devic...margin-top:4px;">Ch\u1ec9 d\xf9ng cho m\u1ee5c \u0111\xedch nghi\xean c\u1ee9u v\xe0 ki\u1ec3m th\u1eed h\u1ee3p ph\xe1p.</p>\\n    </div>\\n</footer>\\n\\n</body>\\n</html>'
+tests\test_report_generator.py:198: AssertionError
+=========================== short test summary info ===========================
+======================== 2 failed, 19 passed in 0.74s =========================

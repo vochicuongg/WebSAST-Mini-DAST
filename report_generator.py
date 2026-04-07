@@ -15,6 +15,7 @@ class ScanResult:
     url: str
     recommendation: str
     timestamp: str
+    scan_type: str = "poc"
 
 
 class HtmlReportGenerator:
@@ -64,59 +65,74 @@ class HtmlReportGenerator:
         else:
             risk_label, risk_color = "THẤP", "#66bb6a"
 
-        rows_html = ""
-        for r in results:
-            sev_class, sev_color = self._get_severity_style(r.severity)
-            status_class = "status-failed" if r.status == "FAILED" else \
-                           "status-passed" if r.status == "PASSED" else "status-error"
-            status_icon = "✗" if r.status == "FAILED" else \
-                          "✓" if r.status == "PASSED" else "⚠"
-            
-            evidence_escaped = (r.evidence or "N/A").replace("<", "&lt;").replace(">", "&gt;")
-            payload_escaped = (r.payload or "N/A").replace("<", "&lt;").replace(">", "&gt;")
+        def render_rows(subset: list) -> str:
+            rows_html = ""
+            for r in subset:
+                sev_class, sev_color = self._get_severity_style(r.severity)
+                status_class = "status-failed" if r.status == "FAILED" else \
+                               "status-passed" if r.status == "PASSED" else "status-error"
+                status_icon = "✗" if r.status == "FAILED" else \
+                              "✓" if r.status == "PASSED" else "⚠"
+                
+                evidence_escaped = (r.evidence or "N/A").replace("<", "&lt;").replace(">", "&gt;")
+                payload_escaped = (r.payload or "N/A").replace("<", "&lt;").replace(">", "&gt;")
 
-            rows_html += f"""
-            <div class="vuln-card {'vuln-failed' if r.status == 'FAILED' else ''}">
-                <div class="vuln-header">
-                    <div class="vuln-title-group">
-                        <span class="vuln-id">{r.vuln_id}</span>
-                        <span class="vuln-name">{r.name}</span>
-                    </div>
-                    <div class="vuln-badges">
-                        <span class="badge {sev_class}">{r.severity}</span>
-                        <span class="badge {status_class}">{status_icon} {r.status}</span>
-                    </div>
-                </div>
-                <div class="vuln-body">
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">🎯 URL Mục Tiêu</span>
-                            <code class="info-value url-value">{r.url}</code>
+                rows_html += f"""
+                <div class="vuln-card {'vuln-failed' if r.status == 'FAILED' else ''}">
+                    <div class="vuln-header">
+                        <div class="vuln-title-group">
+                            <span class="vuln-id">{r.vuln_id}</span>
+                            <span class="vuln-name">{r.name}</span>
                         </div>
-                        <div class="info-item">
-                            <span class="info-label">🕐 Thời Gian</span>
-                            <span class="info-value">{r.timestamp}</span>
+                        <div class="vuln-badges">
+                            <span class="badge {sev_class}">{r.severity}</span>
+                            <span class="badge {status_class}">{status_icon} {r.status}</span>
                         </div>
                     </div>
-                    <div class="info-item full-width">
-                        <span class="info-label">📋 Mô Tả</span>
-                        <p class="info-value desc-text">{r.description}</p>
-                    </div>
-                    <div class="info-item full-width">
-                        <span class="info-label">💉 Payload / Input</span>
-                        <code class="info-value code-block">{payload_escaped}</code>
-                    </div>
-                    <div class="info-item full-width">
-                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
-                        <code class="info-value code-block evidence-block">{evidence_escaped}</code>
-                    </div>
-                    <div class="info-item full-width recommendation-box">
-                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
-                        <p class="info-value">{r.recommendation}</p>
+                    <div class="vuln-body">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">🎯 URL Mục Tiêu</span>
+                                <code class="info-value url-value">{r.url}</code>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">🕐 Thời Gian</span>
+                                <span class="info-value">{r.timestamp}</span>
+                            </div>
+                        </div>
+                        <div class="info-item full-width">
+                            <span class="info-label">📋 Mô Tả</span>
+                            <p class="info-value desc-text">{r.description}</p>
+                        </div>
+                        <div class="info-item full-width">
+                            <span class="info-label">💉 Payload / Input</span>
+                            <code class="info-value code-block">{payload_escaped}</code>
+                        </div>
+                        <div class="info-item full-width">
+                            <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                            <code class="info-value code-block evidence-block">{evidence_escaped}</code>
+                        </div>
+                        <div class="info-item full-width recommendation-box">
+                            <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                            <p class="info-value">{r.recommendation}</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-            """
+                """
+            return rows_html
+
+        poc_results = [r for r in results if getattr(r, 'scan_type', 'poc') == 'poc']
+        discover_results = [r for r in results if getattr(r, 'scan_type', 'poc') == 'discover']
+
+        final_rows_html = ""
+        if poc_results:
+            final_rows_html += f'<h2 class="section-title">Phần 1: Rà Quét 22 Lỗ Hổng Chuyên Đề (Kịch Bản Cố Định)</h2>\n'
+            final_rows_html += render_rows(poc_results)
+        if discover_results:
+            final_rows_html += f'<h2 class="section-title" style="margin-top: 32px;">Phần 2: Khám Phá Tự Động (Lỗ Hổng Tự Nhiên)</h2>\n'
+            final_rows_html += render_rows(discover_results)
+        if not poc_results and not discover_results:
+            final_rows_html = render_rows(results)
 
         report_time = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S").strftime("%d/%m/%Y %H:%M:%S")
 
@@ -377,8 +393,7 @@ class HtmlReportGenerator:
 
     <!-- Vulnerability Cards -->
     <section class="vulns-section">
-        <h2 class="section-title">📋 Chi Tiết Kết Quả Kiểm Thử ({total} test cases)</h2>
-        {rows_html}
+        {final_rows_html}
     </section>
 </main>
 

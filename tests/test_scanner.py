@@ -1,12 +1,13 @@
 """
 tests/test_scanner.py
-Unit tests cho WebSAST_Scanner — toàn bộ HTTP calls được mock,
-không cần target server thật.
+Unit tests cho WebSAST_Scanner va DiscoveryScanner.
+Toan bo HTTP calls duoc mock, khong can target server that.
 """
 import pytest
 import requests
 from unittest.mock import patch, MagicMock
 from websast_framework import WebSAST_Scanner
+from scanner_discovery import DiscoveryScanner, FormInfo
 
 
 BASE = "http://test.local"

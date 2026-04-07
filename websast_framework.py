@@ -1,9 +1,11 @@
+import argparse
 import requests
 import re
 from bs4 import BeautifulSoup
 from colorama import init, Fore, Style
 from datetime import datetime
 from report_generator import HtmlReportGenerator, ScanResult
+from scanner_discovery import DiscoveryScanner
 
 # Khởi tạo màu sắc cho Terminal
 init(autoreset=True)
@@ -401,8 +403,9 @@ class WebSAST_Scanner:
     # =========================================================
     # TRÌNH ĐIỀU KHIỂN CHÍNH (MASTER CONTROLLER)
     # =========================================================
-    def run_all_tests(self):
+    def run_all_tests(self, export_report: bool = True):
         print(Fore.WHITE + "BẮT ĐẦU CHIẾN DỊCH RÀ QUÉT TOÀN DIỆN MỤC TIÊU...\n")
+
 
         results = [
             self.test_v01_sqli_login(),
@@ -419,25 +422,67 @@ class WebSAST_Scanner:
         passed = sum(1 for r in results if r.status == "PASSED")
 
         print(Fore.CYAN + "=" * 70)
-        print(Fore.CYAN + "  🏁 QUÁ TRÌNH KIỂM THỬ ĐỘNG ĐÃ HOÀN TẤT!")
+        print(Fore.CYAN + "  🏁 POC SCAN HOÀN TẤT!")
         print(Fore.CYAN + f"  📊 Kết quả: {Fore.RED}{failed} FAILED  {Fore.GREEN}{passed} PASSED  "
               f"{Fore.YELLOW}{len(results) - failed - passed} ERROR/SKIP")
         print(Fore.CYAN + "=" * 70)
 
-        # Xuất báo cáo HTML
-        print(Fore.YELLOW + "\n[*] Đang tạo báo cáo HTML...")
-        generator = HtmlReportGenerator()
-        output_path = generator.generate(results, target_url=self.base_url, output_dir="./reports")
-        print(Fore.GREEN + f"✅ Báo cáo đã được lưu tại: {output_path}")
-        print(Fore.WHITE + Style.DIM + "   Mở file bằng trình duyệt để xem chi tiết.\n")
+        if export_report:
+            print(Fore.YELLOW + "\n[*] Đang tạo báo cáo HTML...")
+            generator = HtmlReportGenerator()
+            output_path = generator.generate(results, target_url=self.base_url, output_dir="./reports")
+            print(Fore.GREEN + f"✅ Báo cáo đã được lưu tại: {output_path}")
+            print(Fore.WHITE + Style.DIM + "   Mở file bằng trình duyệt để xem chi tiết.\n")
 
         return results
 
 
 # Khởi tạo và chạy Tool
 if __name__ == "__main__":
-    # Thay bằng link thư mục dự án của bạn (ví dụ: webSAST hoặc tên khác)
-    TARGET_WEBSITE = "http://localhost/webSAST"
+    parser = argparse.ArgumentParser(
+        description="WebSAST Automated Exploitation Framework (Mini DAST PoC) v1.2"
+    )
+    parser.add_argument(
+        "--target", "-t",
+        default="http://localhost/webSAST",
+        help="URL muc tieu can quet (mac dinh: http://localhost/webSAST)"
+    )
+    parser.add_argument(
+        "--mode", "-m",
+        choices=["poc", "discover", "all"],
+        default="all",
+        help="Che do quet: poc (8 test co dinh) | discover (tu dong kham pha) | all (ca hai, mac dinh)"
+    )
+    parser.add_argument(
+        "--max-pages",
+        type=int, default=30,
+        help="So trang toi da khi crawl (chi dung cho --mode discover/all, mac dinh: 30)"
+    )
+    args = parser.parse_args()
+
+    TARGET_WEBSITE = args.target
+    all_results = []
 
     scanner = WebSAST_Scanner(TARGET_WEBSITE)
-    scanner.run_all_tests()
+
+    # --- PoC Mode ---
+    if args.mode in ("poc", "all"):
+        poc_results = scanner.run_all_tests(export_report=False)
+        all_results.extend(poc_results)
+
+    # --- Discovery Mode ---
+    if args.mode in ("discover", "all"):
+        ds = DiscoveryScanner(
+            base_url=TARGET_WEBSITE,
+            session=scanner.session,
+            max_pages=args.max_pages,
+        )
+        discovery_results = ds.run()
+        all_results.extend(discovery_results)
+
+    # --- Xuất báo cáo HTML tổng hợp ---
+    print(Fore.YELLOW + "\n[*] Đang tạo báo cáo HTML tổng hợp...")
+    generator = HtmlReportGenerator()
+    output_path = generator.generate(all_results, target_url=TARGET_WEBSITE, output_dir="./reports")
+    print(Fore.GREEN + f"✅ Báo cáo đã được lưu tại: {output_path}")
+    print(Fore.WHITE + Style.DIM + "   Mở file bằng trình duyệt để xem chi tiết.\n")
