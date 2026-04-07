@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSAST DAST Report — 07/04/2026 13:14:23</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #1c2128;
+            --bg-card-failed: #1f1015;
+            --border: #30363d;
+            --border-failed: #5a1e28;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --red: #f85149;
+            --orange: #ff8c42;
+            --yellow: #e3b341;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        /* ── Header ── */
+        .report-header {
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a1f2e 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 40px 0 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        .report-header::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 20% 50%, rgba(88,166,255,0.05) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 20%, rgba(248,81,73,0.05) 0%, transparent 60%);
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; }
+        .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+        .header-brand { display: flex; align-items: center; gap: 14px; }
+        .shield-icon {
+            width: 52px; height: 52px;
+            background: linear-gradient(135deg, #1f6feb, #388bfd);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px;
+            box-shadow: 0 4px 20px rgba(56,139,253,0.3);
+        }
+        .header-title h1 {
+            font-size: 22px; font-weight: 700;
+            background: linear-gradient(90deg, #e6edf3, #58a6ff);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .header-title p { color: var(--text-secondary); font-size: 13px; margin-top: 3px; }
+        .meta-block { text-align: right; }
+        .meta-block p { color: var(--text-secondary); font-size: 12px; line-height: 1.8; }
+        .meta-block code { color: var(--accent); background: rgba(88,166,255,0.08); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+        /* ── Summary Cards ── */
+        .summary-section { padding: 32px 0 24px; }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px; margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        .stat-card:hover { border-color: var(--accent); }
+        .stat-value { font-size: 36px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+        .stat-label { color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-total .stat-value { color: var(--text-primary); }
+        .stat-failed .stat-value { color: var(--red); }
+        .stat-passed .stat-value { color: var(--green); }
+        .stat-error .stat-value { color: var(--orange); }
+        .risk-bar-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px;
+            grid-column: span 2;
+        }
+        .risk-bar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .risk-label-text { font-size: 13px; color: var(--text-secondary); }
+        .risk-score-text { font-size: 18px; font-weight: 700; }
+        .risk-bar-track {
+            height: 10px; background: var(--bg-card);
+            border-radius: 99px; overflow: hidden;
+        }
+        .risk-bar-fill {
+            height: 100%; border-radius: 99px;
+            transition: width 0.8s ease;
+        }
+
+        /* ── Severity Legend ── */
+        .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        /* ── Vuln Cards ── */
+        .vulns-section { padding-bottom: 48px; }
+        .section-title {
+            font-size: 16px; font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .vuln-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px; margin-bottom: 16px;
+            overflow: hidden;
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .vuln-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+        .vuln-failed { background: var(--bg-card-failed); border-color: var(--border-failed); }
+        .vuln-failed:hover { border-color: var(--red); }
+        .vuln-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap; gap: 10px;
+        }
+        .vuln-title-group { display: flex; align-items: center; gap: 10px; }
+        .vuln-id {
+            background: rgba(88,166,255,0.1); color: var(--accent);
+            border: 1px solid rgba(88,166,255,0.3);
+            padding: 3px 10px; border-radius: 6px;
+            font-size: 12px; font-weight: 700; font-family: monospace;
+            white-space: nowrap;
+        }
+        .vuln-name { font-weight: 600; font-size: 15px; }
+        .vuln-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+        /* Badges */
+        .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+        .sev-critical { background: rgba(255,77,77,0.15); color: #ff4d4d; border: 1px solid rgba(255,77,77,0.4); }
+        .sev-high     { background: rgba(255,140,66,0.15); color: #ff8c42; border: 1px solid rgba(255,140,66,0.4); }
+        .sev-medium   { background: rgba(255,193,7,0.15);  color: #ffc107; border: 1px solid rgba(255,193,7,0.4); }
+        .sev-low      { background: rgba(102,187,106,0.15);color: #66bb6a; border: 1px solid rgba(102,187,106,0.4); }
+        .sev-info     { background: rgba(120,144,156,0.15);color: #90a4ae; border: 1px solid rgba(120,144,156,0.4); }
+        .status-failed { background: rgba(248,81,73,0.15); color: #f85149; border: 1px solid rgba(248,81,73,0.4); }
+        .status-passed { background: rgba(63,185,80,0.15); color: #3fb950; border: 1px solid rgba(63,185,80,0.4); }
+        .status-error  { background: rgba(255,140,66,0.15);color: #ff8c42; border: 1px solid rgba(255,140,66,0.4); }
+
+        /* Vuln Body */
+        .vuln-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+        .info-item { display: flex; flex-direction: column; gap: 5px; }
+        .full-width { grid-column: 1 / -1; }
+        .info-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-value { color: var(--text-primary); font-size: 13px; }
+        .url-value { color: var(--accent); word-break: break-all; }
+        .desc-text { color: var(--text-secondary); line-height: 1.7; }
+        .code-block {
+            display: block; background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 8px; padding: 10px 14px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 12px; color: #e6edf3;
+            word-break: break-all; white-space: pre-wrap;
+        }
+        .evidence-block { color: #a5d6ff; min-height: 40px; }
+        .recommendation-box {
+            background: rgba(63,185,80,0.05);
+            border: 1px solid rgba(63,185,80,0.2);
+            border-radius: 8px; padding: 12px 14px;
+        }
+        .recommendation-box .info-label { color: rgba(63,185,80,0.7); }
+        .recommendation-box .info-value { color: #a8d8a9; line-height: 1.7; }
+
+        /* ── Footer ── */
+        .report-footer {
+            border-top: 1px solid var(--border);
+            padding: 20px 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .report-footer a { color: var(--accent); text-decoration: none; }
+        .report-footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<header class="report-header">
+    <div class="container">
+        <div class="header-top">
+            <div class="header-brand">
+                <div class="shield-icon">🛡️</div>
+                <div class="header-title">
+                    <h1>WebSAST DAST Security Report</h1>
+                    <p>Automated Exploitation Framework — Mini DAST PoC v1.1</p>
+                </div>
+            </div>
+            <div class="meta-block">
+                <p>🕐 Thời gian: <strong>07/04/2026 13:14:23</strong></p>
+                <p>🎯 Mục tiêu: <code>http://localhost/webSAST</code></p>
+                <p>👨‍💻 Developer: <strong>Vo Chi Cuong</strong></p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+    <!-- Summary -->
+    <section class="summary-section">
+        <div class="summary-grid">
+            <div class="stat-card stat-total">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Tổng Kiểm Thử</div>
+            </div>
+            <div class="stat-card stat-failed">
+                <div class="stat-value">6</div>
+                <div class="stat-label">Lỗ Hổng Phát Hiện</div>
+            </div>
+            <div class="stat-card stat-passed">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Đã An Toàn</div>
+            </div>
+            <div class="stat-card stat-error">
+                <div class="stat-value">0</div>
+                <div class="stat-label">Lỗi / Bỏ Qua</div>
+            </div>
+            <div class="risk-bar-card">
+                <div class="risk-bar-header">
+                    <span class="risk-label-text">📊 Điểm Rủi Ro Tổng Thể</span>
+                    <span class="risk-score-text" style="color:#ff4d4d;">78% — CAO</span>
+                </div>
+                <div class="risk-bar-track">
+                    <div class="risk-bar-fill" style="width:78%; background:linear-gradient(90deg,#ff4d4d,#ff4d4d88);"></div>
+                </div>
+            </div>
+        </div>
+        <div class="legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#ff4d4d;"></span>CRITICAL</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#ff8c42;"></span>HIGH</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#ffc107;"></span>MEDIUM</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#66bb6a;"></span>LOW</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#78909c;"></span>INFO</span>
+        </div>
+    </section>
+
+    <!-- Vulnerability Cards -->
+    <section class="vulns-section">
+        <h2 class="section-title">📋 Chi Tiết Kết Quả Kiểm Thử (8 test cases)</h2>
+        
+            <div class="vuln-card vuln-failed">
+                <div class="vuln-header">
+                    <div class="vuln-title-group">
+                        <span class="vuln-id">V-01</span>
+                        <span class="vuln-name">SQL Injection (Login Auth Bypass)</span>
+                    </div>
+                    <div class="vuln-badges">
+                        <span class="badge sev-critical">CRITICAL</span>
+                        <span class="badge status-failed">✗ FAILED</span>
+                    </div>
+                </div>
+                <div class="vuln-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">🎯 URL Mục Tiêu</span>
+                            <code class="info-value url-value">http://localhost/webSAST/auth/login.php</code>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🕐 Thời Gian</span>
+                            <span class="info-value">2026-04-07 13:14:23</span>
+                        </div>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">📋 Mô Tả</span>
+                        <p class="info-value desc-text">Lỗ hổng SQLi Bypass TỒN TẠI! Mật khẩu bị vô hiệu hóa bởi payload: "admin' -- "</p>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">💉 Payload / Input</span>
+                        <code class="info-value code-block">admin' -- </code>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                        <code class="info-value code-block evidence-block">Trạng thái HTTP: 200 | Title trang sau bypass: Dashboard – EMS
+Dashboard – EMS EMS Tổng quan Dashboard Nhân sự Danh sách nhân viên Thêm nhân viên Tìm kiếm Quản trị Hệ thống Người dùng Audit Log VQ Quản Trị Viên admin Dashboard VQ Quản Trị Viên admin Quản Trị Viên admin Hồ sơ Đăng xuất Dashboard Xin chào, Quản Trị Viên —  07/04/2026 08:14 14 Tổng nhân viên Xem tất cả → 11 Đang làm việc Trạng thái hoạt động 3 Không hoạt động Nghỉ phép / Đã nghỉ việc 5 Phòng ban Đang hoạt động Nhân viên mới nhất Xem tất cả Họ tên Chức vụ Phòng ban Trạng thái Đang làm Đang làm 
+... [Đã cắt ngắn, tổng 750 ký tự]</code>
+                    </div>
+                    <div class="info-item full-width recommendation-box">
+                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                        <p class="info-value">Sử dụng Prepared Statements (PDO/MySQLi) cho toàn bộ câu query. Không nối chuỗi trực tiếp giá trị người dùng vào SQL.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vuln-card ">
+                <div class="vuln-header">
+                    <div class="vuln-title-group">
+                        <span class="vuln-id">V-07</span>
+                        <span class="vuln-name">XSS Reflected (Search)</span>
+                    </div>
+                    <div class="vuln-badges">
+                        <span class="badge sev-high">HIGH</span>
+                        <span class="badge status-passed">✓ PASSED</span>
+                    </div>
+                </div>
+                <div class="vuln-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">🎯 URL Mục Tiêu</span>
+                            <code class="info-value url-value">http://localhost/webSAST/employees/search.php?search=<script>alert('XSS_TEST')</script></code>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🕐 Thời Gian</span>
+                            <span class="info-value">2026-04-07 13:14:23</span>
+                        </div>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">📋 Mô Tả</span>
+                        <p class="info-value desc-text">An toàn. Dữ liệu đầu vào trang tìm kiếm đã được encode/lọc.</p>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">💉 Payload / Input</span>
+                        <code class="info-value code-block">&lt;script&gt;alert('XSS_TEST')&lt;/script&gt;</code>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                        <code class="info-value code-block evidence-block">N/A</code>
+                    </div>
+                    <div class="info-item full-width recommendation-box">
+                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                        <p class="info-value">Áp dụng htmlspecialchars() hoặc htmlentities() để encode đầu ra. Triển khai Content-Security-Policy (CSP) header.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vuln-card vuln-failed">
+                <div class="vuln-header">
+                    <div class="vuln-title-group">
+                        <span class="vuln-id">V-14</span>
+                        <span class="vuln-name">Broken Access Control (Privilege Escalation)</span>
+                    </div>
+                    <div class="vuln-badges">
+                        <span class="badge sev-critical">CRITICAL</span>
+                        <span class="badge status-failed">✗ FAILED</span>
+                    </div>
+                </div>
+                <div class="vuln-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">🎯 URL Mục Tiêu</span>
+                            <code class="info-value url-value">http://localhost/webSAST/admin/users.php</code>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🕐 Thời Gian</span>
+                            <span class="info-value">2026-04-07 13:14:23</span>
+                        </div>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">📋 Mô Tả</span>
+                        <p class="info-value desc-text">Lỗ hổng Broken Access Control TỒN TẠI! User thường truy cập được trang Admin (HTTP 200).</p>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">💉 Payload / Input</span>
+                        <code class="info-value code-block">Đăng nhập: user/user123 → Truy cập trực tiếp URL Admin</code>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                        <code class="info-value code-block evidence-block">HTTP Status: 200 | Title: Quản lý người dùng – EMS
+Quản lý người dùng – EMS EMS Tổng quan Dashboard Nhân sự Danh sách nhân viên Thêm nhân viên Tìm kiếm AN Nguyễn Văn An employee Quản lý người dùng AN Nguyễn Văn An employee Nguyễn Văn An user Hồ sơ Đăng xuất Quản lý người dùng Thêm người dùng #ID Username Họ tên Email Role Password Hash Ngày tạo Thao tác 1 admin Quản Trị Viên admin@company.local admin 0192023a7bbd73250516f069df18b500 2026-03-07 14:14:00 2 user Nguyễn Văn An an.nguyen@company.local employee 6ad14ba9986e3615423dfca256d04e3f 2026-03
+... [Đã cắt ngắn, tổng 747 ký tự]</code>
+                    </div>
+                    <div class="info-item full-width recommendation-box">
+                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                        <p class="info-value">Kiểm tra phân quyền (Role-Based Access Control) ở phía server cho MỌI route. Không chỉ kiểm tra ở frontend.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vuln-card vuln-failed">
+                <div class="vuln-header">
+                    <div class="vuln-title-group">
+                        <span class="vuln-id">V-15</span>
+                        <span class="vuln-name">IDOR — Insecure Direct Object Reference (Profile)</span>
+                    </div>
+                    <div class="vuln-badges">
+                        <span class="badge sev-high">HIGH</span>
+                        <span class="badge status-failed">✗ FAILED</span>
+                    </div>
+                </div>
+                <div class="vuln-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">🎯 URL Mục Tiêu</span>
+                            <code class="info-value url-value">http://localhost/webSAST/user/profile.php?id=1</code>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🕐 Thời Gian</span>
+                            <span class="info-value">2026-04-07 13:14:23</span>
+                        </div>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">📋 Mô Tả</span>
+                        <p class="info-value desc-text">Lỗ hổng IDOR TỒN TẠI! User thường đọc được dữ liệu của ID=1 (Admin). Dấu hiệu: Quản Trị Viên, admin@</p>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">💉 Payload / Input</span>
+                        <code class="info-value code-block">GET /user/profile.php?id=1 (thay đổi tham số id trên URL)</code>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                        <code class="info-value code-block evidence-block">HTTP Status: 200 | Từ khoá phát hiện: Quản Trị Viên, admin@
+employee Hồ sơ cá nhân AN Nguyễn Văn An employee Nguyễn Văn An user Hồ sơ Đăng xuất Hồ sơ cá nhân Q Quản Trị Viên admin@company.local ADMIN Chỉnh sửa thông tin Tên đăng nhập Họ và tên Email Mật khẩu mới (để trống nếu không đổi) Cập nhật EMS © 2026  —  Employee Management System
+          |   Version 1.0</code>
+                    </div>
+                    <div class="info-item full-width recommendation-box">
+                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                        <p class="info-value">Validate rằng user hiện tại chỉ được phép truy cập tài nguyên của chính mình. Dùng session để xác định ownership thay vì tin vào tham số URL.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vuln-card ">
+                <div class="vuln-header">
+                    <div class="vuln-title-group">
+                        <span class="vuln-id">V-17</span>
+                        <span class="vuln-name">Business Logic Flaw — No Input Validation (Lương Âm)</span>
+                    </div>
+                    <div class="vuln-badges">
+                        <span class="badge sev-medium">MEDIUM</span>
+                        <span class="badge status-passed">✓ PASSED</span>
+                    </div>
+                </div>
+                <div class="vuln-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">🎯 URL Mục Tiêu</span>
+                            <code class="info-value url-value">http://localhost/webSAST/employees/add.php</code>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🕐 Thời Gian</span>
+                            <span class="info-value">2026-04-07 13:14:23</span>
+                        </div>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">📋 Mô Tả</span>
+                        <p class="info-value desc-text">An toàn. Dữ liệu bất hợp lý (lương âm) đã bị từ chối bởi server.</p>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">💉 Payload / Input</span>
+                        <code class="info-value code-block">{'fullname': 'Hacker Logic Test', 'email': 'hacker_logic@test.com', 'salary': '-5000000', 'status': '1'}</code>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                        <code class="info-value code-block evidence-block">N/A</code>
+                    </div>
+                    <div class="info-item full-width recommendation-box">
+                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                        <p class="info-value">Validate toàn bộ dữ liệu tại Backend (không chỉ Frontend): kiểm tra salary > 0, email hợp lệ, và các ràng buộc nghiệp vụ khác.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vuln-card vuln-failed">
+                <div class="vuln-header">
+                    <div class="vuln-title-group">
+                        <span class="vuln-id">V-19</span>
+                        <span class="vuln-name">PHP Version Disclosure (Headers & Body)</span>
+                    </div>
+                    <div class="vuln-badges">
+                        <span class="badge sev-low">LOW</span>
+                        <span class="badge status-failed">✗ FAILED</span>
+                    </div>
+                </div>
+                <div class="vuln-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">🎯 URL Mục Tiêu</span>
+                            <code class="info-value url-value">http://localhost/webSAST/auth/login.php</code>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🕐 Thời Gian</span>
+                            <span class="info-value">2026-04-07 13:14:23</span>
+                        </div>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">📋 Mô Tả</span>
+                        <p class="info-value desc-text">Lỗ hổng Information Disclosure TỒN TẠI! Phiên bản PHP bị lộ: Server Header: Apache/2.4.58 (Win64) OpenSSL/3.1.3 PHP/8.2.12; X-Powered-By Header: PHP/8.2.12</p>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">💉 Payload / Input</span>
+                        <code class="info-value code-block">HTTP GET request — Quan sát headers và body response</code>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                        <code class="info-value code-block evidence-block">HTTP Status: 200
+Server: Apache/2.4.58 (Win64) OpenSSL/3.1.3 PHP/8.2.12
+X-Powered-By: PHP/8.2.12
+</code>
+                    </div>
+                    <div class="info-item full-width recommendation-box">
+                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                        <p class="info-value">Ẩn phiên bản PHP bằng cách đặt 'expose_php = Off' trong php.ini. Cấu hình web server (Apache/Nginx) để ẩn header Server.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vuln-card vuln-failed">
+                <div class="vuln-header">
+                    <div class="vuln-title-group">
+                        <span class="vuln-id">V-20</span>
+                        <span class="vuln-name">Password Hash Disclosure (UI — MD5/bcrypt/SHA1)</span>
+                    </div>
+                    <div class="vuln-badges">
+                        <span class="badge sev-high">HIGH</span>
+                        <span class="badge status-failed">✗ FAILED</span>
+                    </div>
+                </div>
+                <div class="vuln-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">🎯 URL Mục Tiêu</span>
+                            <code class="info-value url-value">http://localhost/webSAST/admin/users.php</code>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🕐 Thời Gian</span>
+                            <span class="info-value">2026-04-07 13:14:23</span>
+                        </div>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">📋 Mô Tả</span>
+                        <p class="info-value desc-text">Lỗ hổng rò rỉ dữ liệu nhạy cảm TỒN TẠI! Tìm thấy hash mật khẩu trên UI: MD5 (2 chuỗi): 0192023a7bbd73250516f069df18b500, 6ad14ba9986e3615423dfca256d04e3f</p>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">💉 Payload / Input</span>
+                        <code class="info-value code-block">Đăng nhập admin và truy cập trang /admin/users.php</code>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                        <code class="info-value code-block evidence-block">HTTP Status: 200 | Kết quả:
+MD5 (2 chuỗi): 0192023a7bbd73250516f069df18b500, 6ad14ba9986e3615423dfca256d04e3f</code>
+                    </div>
+                    <div class="info-item full-width recommendation-box">
+                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                        <p class="info-value">Không bao giờ hiển thị hash mật khẩu trên giao diện. Sử dụng bcrypt/Argon2 thay vì MD5/SHA1 để băm mật khẩu.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="vuln-card vuln-failed">
+                <div class="vuln-header">
+                    <div class="vuln-title-group">
+                        <span class="vuln-id">V-22</span>
+                        <span class="vuln-name">Session Fixation (PHPSESSID Regeneration)</span>
+                    </div>
+                    <div class="vuln-badges">
+                        <span class="badge sev-medium">MEDIUM</span>
+                        <span class="badge status-failed">✗ FAILED</span>
+                    </div>
+                </div>
+                <div class="vuln-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">🎯 URL Mục Tiêu</span>
+                            <code class="info-value url-value">http://localhost/webSAST/auth/login.php</code>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🕐 Thời Gian</span>
+                            <span class="info-value">2026-04-07 13:14:23</span>
+                        </div>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">📋 Mô Tả</span>
+                        <p class="info-value desc-text">Lỗ hổng Session Fixation TỒN TẠI! Session ID không được làm mới sau khi đăng nhập (PHPSESSID: eslpu65aflel0psapckebhmsha).</p>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">💉 Payload / Input</span>
+                        <code class="info-value code-block">GET /auth/login.php (ghi nhận PHPSESSID) → POST login → kiểm tra PHPSESSID mới</code>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">🔍 Bằng Chứng (Evidence)</span>
+                        <code class="info-value code-block evidence-block">Session ID trước đăng nhập: eslpu65aflel0psapckebhmsha
+Session ID sau đăng nhập:  eslpu65aflel0psapckebhmsha</code>
+                    </div>
+                    <div class="info-item full-width recommendation-box">
+                        <span class="info-label">🛠️ Khuyến Nghị Vá Lỗi</span>
+                        <p class="info-value">Gọi session_regenerate_id(true) trong PHP ngay sau khi xác thực đăng nhập thành công để làm mới Session ID.</p>
+                    </div>
+                </div>
+            </div>
+            
+    </section>
+</main>
+
+<footer class="report-footer">
+    <div class="container">
+        <p>Báo cáo được tạo tự động bởi <strong>WebSAST Automated Exploitation Framework (Mini DAST PoC)</strong></p>
+        <p style="margin-top:4px;">Developer: <a href="https://github.com/vochicuongg" target="_blank">Vo Chi Cuong</a> — Chỉ dùng cho mục đích nghiên cứu và kiểm thử hợp pháp.</p>
+    </div>
+</footer>
+
+</body>
+</html>
