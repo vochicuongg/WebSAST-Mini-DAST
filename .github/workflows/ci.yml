@@ -1,0 +1,116 @@
+name: "🛡️ WebSAST DAST — CI Pipeline"
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # JOB 1: Lint — Kiểm tra cú pháp và style
+  # ─────────────────────────────────────────────────────────────
+  lint:
+    name: "🔍 Lint (flake8)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "🐍 Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "📦 Install flake8"
+        run: pip install flake8
+
+      - name: "🚨 Check syntax errors (blocking)"
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 \
+            --show-source --statistics \
+            --exclude=.venv,reports,__pycache__
+
+      - name: "💡 Check style warnings (non-blocking)"
+        run: |
+          flake8 . --count --exit-zero \
+            --max-line-length=127 --statistics \
+            --exclude=.venv,reports,__pycache__
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 2: Test — Chạy unit tests với pytest
+  # ─────────────────────────────────────────────────────────────
+  test:
+    name: "🧪 Unit Tests — Python ${{ matrix.python-version }}"
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "🐍 Set up Python ${{ matrix.python-version }}"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: "📦 Install dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: "🧪 Run pytest with coverage"
+        run: |
+          pytest tests/ -v --tb=short \
+            --cov=. --cov-omit=.venv/*,reports/* \
+            --cov-report=xml:coverage-py${{ matrix.python-version }}.xml \
+            --cov-report=term-missing
+
+      - name: "📊 Upload coverage report"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: "coverage-py${{ matrix.python-version }}"
+          path: "coverage-py${{ matrix.python-version }}.xml"
+          retention-days: 14
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 3: Report — Sinh báo cáo HTML mẫu và lưu là artifact
+  # ─────────────────────────────────────────────────────────────
+  report:
+    name: "📄 Generate Sample HTML Report"
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "🐍 Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "📦 Install runtime dependencies"
+        run: |
+          pip install -r requirements.txt
+
+      - name: "📄 Generate sample DAST HTML report"
+        run: python ci_generate_report.py
+
+      - name: "📤 Upload HTML report as artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "dast-html-report"
+          path: "reports/"
+          retention-days: 30

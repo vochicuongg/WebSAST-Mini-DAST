@@ -1,0 +1,9 @@
+[flake8]
+max-line-length = 127
+exclude =
+    .venv,
+    __pycache__,
+    reports,
+    .git
+per-file-ignores =
+    tests/*: E501,W503

@@ -1,9 +1,3 @@
-"""
-report_generator.py
-Module xuất báo cáo HTML cho WebSAST Automated Exploitation Framework (Mini DAST PoC).
-Developer: Vo Chi Cuong
-"""
-
 import os
 from datetime import datetime
 from dataclasses import dataclass
@@ -337,7 +331,6 @@ class HtmlReportGenerator:
             <div class="meta-block">
                 <p>🕐 Thời gian: <strong>{report_time}</strong></p>
                 <p>🎯 Mục tiêu: <code>{target_url}</code></p>
-                <p>👨‍💻 Developer: <strong>Vo Chi Cuong</strong></p>
             </div>
         </div>
     </div>
@@ -392,7 +385,7 @@ class HtmlReportGenerator:
 <footer class="report-footer">
     <div class="container">
         <p>Báo cáo được tạo tự động bởi <strong>WebSAST Automated Exploitation Framework (Mini DAST PoC)</strong></p>
-        <p style="margin-top:4px;">Developer: <a href="https://github.com/vochicuongg" target="_blank">Vo Chi Cuong</a> — Chỉ dùng cho mục đích nghiên cứu và kiểm thử hợp pháp.</p>
+        <p style="margin-top:4px;">Chỉ dùng cho mục đích nghiên cứu và kiểm thử hợp pháp.</p>
     </div>
 </footer>
 

@@ -1,11 +1,3 @@
-"""
-websast_framework.py
-WebSAST Automated Exploitation Framework (Mini DAST PoC) v1.1
-Developer: Vo Chi Cuong
-
-Công cụ kiểm thử bảo mật động, tự động hoá quá trình rà quét lỗ hổng trên hệ thống WebSAST.
-"""
-
 import requests
 import re
 from bs4 import BeautifulSoup
@@ -54,7 +46,6 @@ class WebSAST_Scanner:
     def _print_banner(self):
         print(Fore.CYAN + "=" * 70)
         print(Fore.CYAN + "  🛡️  WebSAST AUTOMATED EXPLOITATION FRAMEWORK (Mini DAST PoC) v1.1")
-        print(Fore.CYAN + "  👨‍💻 Developer: Vo Chi Cuong")
         print(Fore.CYAN + "=" * 70 + "\n")
 
     def _now(self) -> str:
