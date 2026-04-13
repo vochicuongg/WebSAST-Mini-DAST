@@ -69,7 +69,7 @@ class TestV01SQLi:
 # ─── V-07: XSS ───────────────────────────────────────────────────────────────
 
 class TestV07XSS:
-    PAYLOAD = "<script>alert('XSS_TEST')</script>"
+    PAYLOAD = "<script>alert('XSS_DAST')</script>"
 
     def test_passed_payload_encoded(self, scanner):
         with patch.object(scanner.session, 'get', return_value=make_response("Safe &lt;script&gt; output")):
@@ -281,4 +281,212 @@ class TestV22SessionFixation:
     def test_connection_error(self, scanner):
         with patch.object(scanner.session, 'get', side_effect=requests.exceptions.ConnectionError()):
             result = scanner.test_v22_session_fixation()
+        assert result.status == "ERROR"
+
+
+# ─── V-02 → V-06: SQLi Generic (dùng _test_sqli_generic) ─────────────────────
+
+SQL_ERROR_HTML = "<p>You have an error in your SQL syntax; check the manual...</p>"
+SAFE_HTML = "<html><body><p>Không có kết quả.</p></body></html>"
+
+
+class TestV02SqliSearch:
+    def test_passed(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SAFE_HTML)):
+                result = scanner.test_v02_sqli_search()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-02"
+
+    def test_failed_sql_error_in_response(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SQL_ERROR_HTML)):
+                result = scanner.test_v02_sqli_search()
+        assert result.status == "FAILED"
+        assert result.severity == "CRITICAL"
+
+    def test_connection_error(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', side_effect=requests.exceptions.ConnectionError()):
+                result = scanner.test_v02_sqli_search()
+        assert result.status == "ERROR"
+
+
+class TestV03SqliEdit:
+    def test_passed(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response(SAFE_HTML)):
+            result = scanner.test_v03_sqli_edit()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-03"
+
+    def test_failed_sql_error(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response(SQL_ERROR_HTML)):
+            result = scanner.test_v03_sqli_edit()
+        assert result.status == "FAILED"
+
+    def test_connection_error(self, scanner):
+        with patch.object(scanner.session, 'post', side_effect=requests.exceptions.ConnectionError()):
+            result = scanner.test_v03_sqli_edit()
+        assert result.status == "ERROR"
+
+
+class TestV04SqliDelete:
+    def test_passed(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SAFE_HTML)):
+                result = scanner.test_v04_sqli_delete()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-04"
+
+    def test_failed_sql_error(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SQL_ERROR_HTML)):
+                result = scanner.test_v04_sqli_delete()
+        assert result.status == "FAILED"
+
+
+class TestV05SqliView:
+    def test_passed(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SAFE_HTML)):
+                result = scanner.test_v05_sqli_view()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-05"
+
+    def test_failed_sql_error(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SQL_ERROR_HTML)):
+                result = scanner.test_v05_sqli_view()
+        assert result.status == "FAILED"
+
+
+class TestV06SqliFilter:
+    def test_passed(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SAFE_HTML)):
+                result = scanner.test_v06_sqli_filter()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-06"
+
+    def test_failed_sql_error(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SQL_ERROR_HTML)):
+                result = scanner.test_v06_sqli_filter()
+        assert result.status == "FAILED"
+
+
+# ─── V-08: XSS Stored (Notes) ──────────────────────────────────────────────────
+
+XSS_STORED_PAYLOAD = "<img src=x onerror=\"alert('XSS_STORED_V8')\">"
+
+
+class TestV08XssStored:
+    def test_passed_payload_not_reflected(self, scanner):
+        safe = "<html><body><p>Ghi chú: &lt;img ...&gt;</p></body></html>"
+        with patch.object(scanner.session, 'post', return_value=make_response(safe)):
+            with patch.object(scanner.session, 'get', return_value=make_response(safe)):
+                result = scanner.test_v08_xss_stored_notes()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-08"
+
+    def test_failed_payload_reflected_in_get(self, scanner):
+        html_with_payload = f"<html><body><p>{XSS_STORED_PAYLOAD}</p></body></html>"
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(html_with_payload)):
+                result = scanner.test_v08_xss_stored_notes()
+        assert result.status == "FAILED"
+        assert result.severity == "CRITICAL"
+
+    def test_connection_error(self, scanner):
+        with patch.object(scanner.session, 'post', side_effect=requests.exceptions.ConnectionError()):
+            result = scanner.test_v08_xss_stored_notes()
+        assert result.status == "ERROR"
+
+
+# ─── V-09: XSS Reflected (Login Error) ─────────────────────────────────────────
+
+class TestV09XssLogin:
+    XSS_PAYLOAD = "<script>alert('XSS_DAST')</script>"
+
+    def test_passed_payload_encoded(self, scanner):
+        with patch.object(scanner.session, 'post',
+                          return_value=make_response("Sai mật khẩu &lt;script&gt;")):
+            result = scanner.test_v09_xss_reflected_login()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-09"
+
+    def test_failed_payload_reflected(self, scanner):
+        html = f"<div>Tên đăng nhập không hợp lệ: {self.XSS_PAYLOAD}</div>"
+        with patch.object(scanner.session, 'post', return_value=make_response(html)):
+            result = scanner.test_v09_xss_reflected_login()
+        assert result.status == "FAILED"
+        assert self.XSS_PAYLOAD in result.evidence
+
+    def test_connection_error(self, scanner):
+        with patch.object(scanner.session, 'post',
+                          side_effect=requests.exceptions.ConnectionError()):
+            result = scanner.test_v09_xss_reflected_login()
+        assert result.status == "ERROR"
+
+
+# ─── V-11: XSS in URL Params ────────────────────────────────────────────────────
+
+class TestV11XssUrlParams:
+    XSS_PAYLOAD = "<script>alert('XSS_DAST')</script>"
+
+    def test_passed_param_encoded(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get',
+                              return_value=make_response("Trang: &lt;script&gt;")):
+                result = scanner.test_v11_xss_url_params()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-11"
+
+    def test_failed_payload_reflected(self, scanner):
+        html = f"<nav>Trang: {self.XSS_PAYLOAD}</nav>"
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(html)):
+                result = scanner.test_v11_xss_url_params()
+        assert result.status == "FAILED"
+
+    def test_connection_error(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get',
+                              side_effect=requests.exceptions.ConnectionError()):
+                result = scanner.test_v11_xss_url_params()
+        assert result.status == "ERROR"
+
+
+# ─── V-18: SQL Error Disclosure ─────────────────────────────────────────────────
+
+class TestV18SqlErrorDisclosure:
+    SQL_LEAK = "Warning: mysql_fetch_array() expects parameter"
+
+    def test_passed_no_error_leaked(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(SAFE_HTML)):
+                result = scanner.test_v18_sql_error_disclosure()
+        assert result.status == "PASSED"
+        assert result.vuln_id == "V-18"
+
+    def test_failed_sql_warning_visible(self, scanner):
+        leak_html = f"<html><body><p>{self.SQL_LEAK}</p></body></html>"
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(leak_html)):
+                result = scanner.test_v18_sql_error_disclosure()
+        assert result.status == "FAILED"
+        assert result.severity == "MEDIUM"
+
+    def test_failed_sql_syntax_error_visible(self, scanner):
+        leak_html = "<p>You have an error in your SQL syntax check the manual</p>"
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get', return_value=make_response(leak_html)):
+                result = scanner.test_v18_sql_error_disclosure()
+        assert result.status == "FAILED"
+
+    def test_connection_error(self, scanner):
+        with patch.object(scanner.session, 'post', return_value=make_response()):
+            with patch.object(scanner.session, 'get',
+                              side_effect=requests.exceptions.ConnectionError()):
+                result = scanner.test_v18_sql_error_disclosure()
         assert result.status == "ERROR"
