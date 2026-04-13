@@ -52,6 +52,7 @@ class WebSAST_Scanner:
     def __init__(self, base_url: str):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
+        self.session.max_redirects = 5  # Giảm số lần redirect tối đa trước khi báo lỗi
         self._print_banner()
 
     def _print_banner(self):
@@ -64,11 +65,11 @@ class WebSAST_Scanner:
 
     def _print_result(self, result: ScanResult):
         if result.status == "FAILED":
-            color, icon = Fore.RED, "✗ [FAILED]"
+            color, icon = Fore.RED, "=> [FAILED]"
         elif result.status == "PASSED":
-            color, icon = Fore.GREEN, "✓ [PASSED]"
+            color, icon = Fore.GREEN, "=> [PASSED]"
         else:
-            color, icon = Fore.YELLOW, "⚠ [ERROR/SKIP]"
+            color, icon = Fore.YELLOW, "=> [ERROR/SKIP]"
 
         print(Fore.YELLOW + f"[*] Đang test {result.vuln_id}: {result.name}...")
         print(color + f"    {icon} {result.description}")
@@ -128,9 +129,9 @@ class WebSAST_Scanner:
             for payload, label in sqli_payloads:
                 data = {**extra_data, param_name: payload}
                 resp = (
-                    self.session.post(url, data=data, timeout=10)
+                    self.session.post(url, data=data, timeout=10, allow_redirects=False)
                     if method.upper() == "POST"
-                    else self.session.get(url, params=data, timeout=10)
+                    else self.session.get(url, params=data, timeout=10, allow_redirects=False)
                 )
                 body_lower = resp.text.lower()
                 for err in sqli_errors:
@@ -199,9 +200,9 @@ class WebSAST_Scanner:
         try:
             data = {**extra_data, param_name: payload}
             resp = (
-                self.session.post(url, data=data, timeout=10)
+                self.session.post(url, data=data, timeout=10, allow_redirects=False)
                 if method.upper() == "POST"
-                else self.session.get(url, params=data, timeout=10)
+                else self.session.get(url, params=data, timeout=10, allow_redirects=False)
             )
 
             if payload in resp.text:
@@ -277,53 +278,29 @@ class WebSAST_Scanner:
         self._print_result(result)
         return result
 
-    def test_v02_sqli_search(self) -> ScanResult:
-        """[DAST] SQLi tại tham số search trên trang tìm kiếm nhân viên."""
+    def test_v02_to_v06_sqli_batch(self) -> list[ScanResult]:
+        """[DAST] Nhóm 5 lỗi SQLi (V-02 đến V-06) thành 1 hàm truyền tham số (DRY)."""
         self.login("admin", "admin123")
-        return self._test_sqli_generic(
-            vuln_id="V-02", name="SQL Injection (Search — employees/search.php)",
-            url=f"{self.base_url}/employees/search.php",
-            method="GET", param_name="search", extra_data={},
-            need_login=("admin", "admin123"),
-        )
-
-    def test_v03_sqli_edit(self) -> ScanResult:
-        """[DAST] SQLi khi chỉnh sửa thông tin nhân viên qua form POST."""
-        return self._test_sqli_generic(
-            vuln_id="V-03", name="SQL Injection (Edit Employee — employees/edit.php)",
-            url=f"{self.base_url}/employees/edit.php",
-            method="POST",
-            param_name="id",
-            extra_data={"fullname": "Test", "email": "t@t.com", "salary": "1000", "status": "1"},
-            need_login=("admin", "admin123"),
-        )
-
-    def test_v04_sqli_delete(self) -> ScanResult:
-        """[DAST] SQLi qua tham số id khi xoá nhân viên."""
-        return self._test_sqli_generic(
-            vuln_id="V-04", name="SQL Injection (Delete Employee — employees/delete.php)",
-            url=f"{self.base_url}/employees/delete.php",
-            method="GET", param_name="id", extra_data={},
-            need_login=("admin", "admin123"),
-        )
-
-    def test_v05_sqli_view(self) -> ScanResult:
-        """[DAST] SQLi qua tham số id khi xem chi tiết nhân viên."""
-        return self._test_sqli_generic(
-            vuln_id="V-05", name="SQL Injection (View Employee — employees/view.php)",
-            url=f"{self.base_url}/employees/view.php",
-            method="GET", param_name="id", extra_data={},
-            need_login=("admin", "admin123"),
-        )
-
-    def test_v06_sqli_filter(self) -> ScanResult:
-        """[DAST] SQLi qua tham số filter/status/dept trên trang danh sách."""
-        return self._test_sqli_generic(
-            vuln_id="V-06", name="SQL Injection (List Filter — employees/list.php)",
-            url=f"{self.base_url}/employees/list.php",
-            method="GET", param_name="department", extra_data={"status": "1"},
-            need_login=("admin", "admin123"),
-        )
+        cases = [
+            ("V-02", "SQL Injection (Search — employees/search.php)", f"{self.base_url}/employees/search.php", "GET", "search", {}),
+            ("V-03", "SQL Injection (Edit Employee — employees/edit.php)", f"{self.base_url}/employees/edit.php", "POST", "id", {"fullname": "Test", "email": "t@t.com", "salary": "1000", "status": "1"}),
+            ("V-04", "SQL Injection (Delete Employee — employees/delete.php)", f"{self.base_url}/employees/delete.php", "GET", "id", {}),
+            ("V-05", "SQL Injection (View Employee — employees/view.php)", f"{self.base_url}/employees/view.php", "GET", "id", {}),
+            ("V-06", "SQL Injection (List Filter — employees/list.php)", f"{self.base_url}/employees/list.php", "GET", "department", {"status": "1"}),
+        ]
+        
+        results = []
+        for vuln_id, name, url, method, param_name, extra_data in cases:
+            res = self._test_sqli_generic(
+                vuln_id=vuln_id,
+                name=name,
+                url=url,
+                method=method,
+                param_name=param_name,
+                extra_data=extra_data
+            )
+            results.append(res)
+        return results
 
     # =========================================================
     # MODULE 2: XSS (V-07 → V-09, V-11)
@@ -352,10 +329,10 @@ class WebSAST_Scanner:
             self.session.post(
                 post_url,
                 data={"id": employee_id, "note": xss_payload, "action": "add_note"},
-                timeout=10,
+                timeout=10, allow_redirects=False
             )
             # Load lại trang để kiểm tra payload có hiển thị không
-            resp = self.session.get(post_url, params={"id": employee_id}, timeout=10)
+            resp = self.session.get(post_url, params={"id": employee_id}, timeout=10, allow_redirects=False)
             if xss_payload in resp.text:
                 status = "FAILED"
                 idx = resp.text.find(xss_payload)
@@ -412,7 +389,7 @@ class WebSAST_Scanner:
         description = "An toàn. Hệ thống đã chặn truy cập trái phép tới trang Admin."
 
         try:
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, timeout=10, allow_redirects=False)
             if "Danh sách người dùng" in resp.text or "employee" in resp.text.lower():
                 status = "FAILED"
                 description = (f"Lỗ hổng Broken Access Control TỒN TẠI! "
@@ -456,7 +433,7 @@ class WebSAST_Scanner:
         description = "An toàn. Không thể xem hồ sơ của người dùng khác (IDOR được chặn)."
 
         try:
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, timeout=10, allow_redirects=False)
             indicators = ["Quản Trị Viên", "administrator", "admin@"]
             found = [kw for kw in indicators if kw.lower() in resp.text.lower()]
             if found:
@@ -503,7 +480,7 @@ class WebSAST_Scanner:
         description = "An toàn. Dữ liệu bất hợp lý (lương âm) đã bị từ chối bởi server."
 
         try:
-            resp = self.session.post(url, data=payload_data, timeout=10)
+            resp = self.session.post(url, data=payload_data, timeout=10, allow_redirects=False)
             success_keywords = ["thành công", "successfully", "dast_negative_salary@test.com"]
             found = [kw for kw in success_keywords if kw.lower() in resp.text.lower()]
             if found:
@@ -548,7 +525,7 @@ class WebSAST_Scanner:
 
         try:
             for url in target_urls:
-                resp = self.session.get(url, timeout=10)
+                resp = self.session.get(url, timeout=10, allow_redirects=False)
                 for pattern in sql_error_patterns:
                     if pattern in resp.text.lower():
                         idx = resp.text.lower().find(pattern)
@@ -596,7 +573,7 @@ class WebSAST_Scanner:
         description = "An toàn. Phiên bản PHP không bị lộ trong phản hồi."
 
         try:
-            resp = requests.get(url, timeout=10)
+            resp = requests.get(url, timeout=10, allow_redirects=False)
             body_match = re.search(r'PHP[/\s]([5-9]\.\d+\.\d+)', resp.text)
             server_header = resp.headers.get("Server", "")
             powered_by = resp.headers.get("X-Powered-By", "")
@@ -647,7 +624,7 @@ class WebSAST_Scanner:
         description = "An toàn. Mật khẩu đã mã hóa không bị in ra giao diện người dùng."
 
         try:
-            resp = self.session.get(url, timeout=10)
+            resp = self.session.get(url, timeout=10, allow_redirects=False)
             md5_hashes = re.findall(r'\b[a-fA-F0-9]{32}\b', resp.text)
             bcrypt_hashes = re.findall(r'\$2[ayb]\$\d{2}\$[./A-Za-z0-9]{53}', resp.text)
             sha1_hashes = re.findall(r'\b[a-fA-F0-9]{40}\b', resp.text)
@@ -692,7 +669,7 @@ class WebSAST_Scanner:
         description = "An toàn. Session ID được làm mới sau khi đăng nhập thành công."
 
         try:
-            self.session.get(url, timeout=10)
+            self.session.get(url, timeout=10, allow_redirects=False)
             id_before = self.session.cookies.get("PHPSESSID")
             self.login("user", "user123")
             id_after = self.session.cookies.get("PHPSESSID")
@@ -735,11 +712,7 @@ class WebSAST_Scanner:
         results = [
             # SQLi
             self.test_v01_sqli_login(),
-            self.test_v02_sqli_search(),
-            self.test_v03_sqli_edit(),
-            self.test_v04_sqli_delete(),
-            self.test_v05_sqli_view(),
-            self.test_v06_sqli_filter(),
+            *self.test_v02_to_v06_sqli_batch(),
             # XSS
             self.test_v07_xss_search(),
             self.test_v08_xss_stored_notes(),

@@ -119,7 +119,7 @@ class DiscoveryScanner:
             if url in visited:
                 continue
             try:
-                resp = self.session.get(url, timeout=self.timeout, allow_redirects=True)
+                resp = self.session.get(url, timeout=self.timeout, allow_redirects=False)
                 visited.add(url)
                 if "text/html" not in resp.headers.get("Content-Type", ""):
                     continue
@@ -197,9 +197,9 @@ class DiscoveryScanner:
                     data = {f["name"]: f.get("value", "test") for f in form.fields}
                     data[fld["name"]] = payload
                     try:
-                        resp = (self.session.post(form.action, data=data, timeout=self.timeout)
+                        resp = (self.session.post(form.action, data=data, timeout=self.timeout, allow_redirects=False)
                                 if form.method == "POST"
-                                else self.session.get(form.action, params=data, timeout=self.timeout))
+                                else self.session.get(form.action, params=data, timeout=self.timeout, allow_redirects=False))
                         for err in SQLI_ERRORS:
                             if err in resp.text.lower():
                                 affected.append(

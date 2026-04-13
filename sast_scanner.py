@@ -67,11 +67,11 @@ class SASTScanner:
 
     def _print_result(self, result: ScanResult):
         if result.status == "FAILED":
-            color, icon = Fore.RED, "✗ [FAILED]"
+            color, icon = Fore.RED, "=> [FAILED]"
         elif result.status == "PASSED":
-            color, icon = Fore.GREEN, "✓ [PASSED]"
+            color, icon = Fore.GREEN, "=> [PASSED]"
         else:
-            color, icon = Fore.YELLOW, "⚠ [ERROR/SKIP]"
+            color, icon = Fore.YELLOW, "=> [ERROR/SKIP]"
 
         print(Fore.YELLOW + f"[*] Đang phân tích {result.vuln_id}: {result.name}...")
         print(color + f"    {icon} {result.description}")
@@ -451,10 +451,85 @@ class SASTScanner:
         self._print_result(result)
         return result
 
+    # ─── V-24: Malware / Webshell / Backdoor ─────────────────────
+
+    def test_v24_malware_webshell_scan(self, scan_dirs: list[str] | None = None) -> ScanResult:
+        """
+        [SAST] Quét mã độc, webshell, backdoor (eval, base64_decode, system, shell_exec...)
+        """
+        if scan_dirs is None:
+            # Quét tất cả thư mục
+            scan_dirs = [""]  
+
+        # Các signature tiêu biểu của webshell / backdoor
+        malware_patterns = [
+            (r"""eval\s*\(\s*base64_decode\s*\(""", "Webshell/Obfuscation: eval(base64_decode(...))"),
+            (r"""eval\s*\(\s*\$_(?:POST|GET|REQUEST)""", "Webshell: eval($_POST)"),
+            (r"""system\s*\(\s*\$_(?:POST|GET|REQUEST)""", "Webshell/RCE: system($_GET/POST)"),
+            (r"""shell_exec\s*\(\s*\$_""", "RCE: shell_exec() với input trực tiếp"),
+            (r"""passthru\s*\(\s*\$_""", "RCE: passthru() với input trực tiếp"),
+            (r"""`\s*\$_(?:POST|GET|REQUEST)[^`]*`""", "RCE: backticks execution `$POST`"),
+            (r"""assert\s*\(\s*\$_(?:POST|GET|REQUEST)""", "Webshell: assert($_POST)"),
+            (r"""preg_replace\s*\(\s*['"]/.*/e['"]\s*,\s*\$_(?:POST|GET|REQUEST)""", "RCE: preg_replace /e modifier"),
+            (r"""(?:include|require)(?:_once)?\s*\(\s*(?:['"]https?://|\$_(?:GET|POST|REQUEST))""", "RFI: include() từ xa hoặc từ user input"),
+        ]
+
+        found_threats = []
+
+        for scan_dir in scan_dirs:
+            dir_path = self._path(scan_dir)
+            if not os.path.exists(dir_path):
+                continue
+            
+            # Walk directory tree
+            for root, _, files in os.walk(dir_path):
+                for fname in files:
+                    if not fname.endswith(".php"):
+                        continue
+                    fpath = os.path.join(root, fname)
+                    content = _read_file(fpath)
+                    if content is None:
+                        continue
+                    
+                    rel = os.path.relpath(fpath, self.web_root)
+
+                    # Scan for each pattern
+                    for pattern, explanation in malware_patterns:
+                        lines = _find_pattern_lines(content, pattern)
+                        if lines:
+                            found_threats.append(f"► [File: {rel}] - {explanation}:\n" + "\n".join(lines[:3]))
+
+        if found_threats:
+            status = "FAILED"
+            description = (
+                f"CẢNH BÁO MÃ ĐỘC TỒN TẠI! Phát hiện {len(found_threats)} dấu hiệu "
+                "khả nghi của Webshell/Backdoor hoặc Remote Code Execution (RCE)."
+            )
+            evidence = _truncate("Chi tiết các file bị nhiễm mã độc:\n" + "\n\n".join(found_threats[:10]))
+        else:
+            status = "PASSED"
+            description = "An toàn. Không phát hiện signature của mã độc/webshell trong project."
+            evidence = "N/A"
+
+        result = ScanResult(
+            vuln_id="V-24", name="Malware & Webshell Scan (SAST)",
+            severity="CRITICAL", status=status, description=description,
+            payload="SAST — Regex Scanner: eval(), base64_decode, system(), shell_exec()...",
+            evidence=evidence, url=f"file://{self.web_root}",
+            recommendation=(
+                "Kiểm tra ngay lập tức các file bị cảnh báo và xóa các đoạn code độc hại. "
+                "Cấu hình php.ini: disable_functions = exec,passthru,shell_exec,system... "
+                "Không bao giờ dùng eval() hay assert() trên dữ liệu do người dùng cung cấp."
+            ),
+            timestamp=self._now(), scan_type="poc",
+        )
+        self._print_result(result)
+        return result
+
     # ─── Master Runner ─────────────────────────────────────────────
 
     def run_all_sast_tests(self) -> list[ScanResult]:
-        """Chạy toàn bộ 6 SAST test case theo thứ tự V-10 → V-23."""
+        """Chạy toàn bộ 7 SAST test case (từ V-10 đến V-24)."""
         results = [
             self.test_v10_dom_xss(),
             self.test_v12_hardcoded_db_password(),
@@ -462,6 +537,7 @@ class SASTScanner:
             self.test_v16_no_csrf_protection(),
             self.test_v21_weak_md5_hashing(),
             self.test_v23_password_in_session(),
+            self.test_v24_malware_webshell_scan(),
         ]
 
         failed = sum(1 for r in results if r.status == "FAILED")
